@@ -4,92 +4,11 @@ use std::rc::Rc;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
+use crate::camera::{Camera, Screen};
+use crate::vec3::Vec3;
 
-struct Gvector {
-    x: f32,
-    y: f32,
-    z: f32
-}
-
-impl Gvector {
-    fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            x,
-            y,
-            z
-        }
-    }
-
-    fn subtract(point1: &Self, point2: &Self) -> Self {
-        Self {
-            x: point2.x - point1.x,
-            y: point2.y - point1.y,
-            z: point2.z - point1.z
-        }
-    }
-
-    fn add(point1: &Self, point2: &Self) -> Self {
-        Self {
-            x: point1.x + point2.x,
-            y: point1.y + point2.y,
-            z: point1.z + point2.z
-        }
-    }
-
-    fn scale(&self, scalar: f32) -> Self {
-        Self {
-            x: scalar * self.x,
-            y: scalar * self.y,
-            z: scalar * self.z,
-        }
-    }
-}
-
-struct Camera {
-    pin_hole: Gvector,
-    screen: Screen
-}
-
-impl Camera {
-    fn get_center_point(&self) -> Gvector {
-        let vector_horizontal = Gvector::subtract(&self.screen.top_left, &self.screen.top_right);
-        let vector_vertical = Gvector::subtract(&self.screen.top_left, &self.screen.top_right);
-        let half_vector_horizontal = vector_horizontal.scale(0.5);
-        let half_vector_vertical = vector_vertical.scale(0.5);
-        Gvector::add(&half_vector_horizontal, &half_vector_vertical)
-    }
-
-    fn center_vector(&self) -> Gvector {
-        Gvector::subtract(&self.pin_hole, &self.get_center_point())
-    }
-}
-
-struct Screen {
-    top_left: Gvector,
-    top_right: Gvector,
-    bottom_left: Gvector,
-    bottom_right: Gvector
-}
-
-fn find_projection(point: &Gvector, camera: &Camera) -> Gvector {
-    let point_to_pin_hole = Gvector::subtract(&point, &camera.pin_hole);
-    let lambda =
-        - (
-        camera.center_vector().x * camera.get_center_point().x - camera.center_vector().x * point.x +
-        camera.center_vector().y * camera.get_center_point().y - camera.center_vector().y * point.y +
-        camera.center_vector().z * camera.get_center_point().z - camera.center_vector().z * point.z
-        ) / (
-        camera.center_vector().x * point_to_pin_hole.x +
-        camera.center_vector().y * point_to_pin_hole.y +
-        camera.center_vector().z * point_to_pin_hole.z);
-
-    Gvector {
-        x: point.x + lambda * point_to_pin_hole.x,
-        y: point.y + lambda * point_to_pin_hole.y,
-        z: point.z + lambda * point_to_pin_hole.z,
-    }
-
-}
+mod vec3;
+mod camera;
 
 fn main() {
     let event_loop = EventLoop::new().unwrap();
@@ -113,17 +32,50 @@ fn main() {
 
                 let mut buffer = surface.buffer_mut().unwrap();
 
-                let point = Gvector::new(0.5, 0.5, 2.0);
-                let pin_hole = Gvector::new(1.0, 1.0, 1.0);
-                let camera = Camera {
-                    pin_hole,
-                    length: 1.0
-                };
+                let screen = Screen::new(
+                  Vec3::new(0.0, 0.0, 0.0),
+                  Vec3::new(0.0, 20.0, 0.0),
+                  Vec3::new(20.0, 0.0, 0.0),
+                  Vec3::new(20.0, 20.0, 0.0)
+                );
 
-                let x2 = 100;
-                let y2 = 100;
-                let x1 = 700;
-                let y1 = 80;
+                let camera = Camera::new(Vec3::new(10.0, 10.0, 10.0), screen);
+
+                let cube_vertex_1 = Vec3::new(5.0, 5.0, 20.0);
+                let cube_vertex_2 = Vec3::new(5.0, 15.0, 20.0);
+                let cube_vertex_3 = Vec3::new(15.0, 5.0, 20.0);
+                let cube_vertex_4 = Vec3::new(15.0, 15.0, 20.0);
+
+                let cube_vertex_5 = Vec3::new(5.0, 5.0, 30.0);
+                let cube_vertex_6 = Vec3::new(5.0, 15.0, 30.0);
+                let cube_vertex_7 = Vec3::new(15.0, 5.0, 30.0);
+                let cube_vertex_8 = Vec3::new(15.0, 15.0, 40.0);
+
+                let edge_1 = (&cube_vertex_1, &cube_vertex_2);
+                let edge_2 = (&cube_vertex_3, &cube_vertex_4);
+                let edge_3 = (&cube_vertex_1, &cube_vertex_3);
+                let edge_4 = (&cube_vertex_2, &cube_vertex_4);
+
+                let edge_5 = (&cube_vertex_5, &cube_vertex_6);
+                let edge_6 = (&cube_vertex_7, &cube_vertex_8);
+                let edge_7 = (&cube_vertex_5, &cube_vertex_7);
+                let edge_8 = (&cube_vertex_6, &cube_vertex_8);
+
+                let edge_9 = (&cube_vertex_1, &cube_vertex_5);
+                let edge_10 = (&cube_vertex_2, &cube_vertex_6);
+                let edge_11 = (&cube_vertex_3, &cube_vertex_7);
+                let edge_12 = (&cube_vertex_4, &cube_vertex_8);
+
+                let edges = vec![
+                    edge_1, edge_2, edge_3, edge_4,
+                    edge_5, edge_6, edge_7, edge_8,
+                    edge_9, edge_10, edge_11, edge_12,
+                ];
+
+                let projected_edges : Vec<((f32, f32), (f32, f32))> = edges.iter()
+                    .map(|edge| (camera.find_projection(edge.0), camera.find_projection(edge.1)))
+                    .collect();
+
                 for index in 0..(width * height) {
                     let mut red = 0;
                     let mut green = 0;
@@ -132,12 +84,17 @@ fn main() {
                     let current_x = index % width;
                     let current_y = index / width;
 
-                    let is_point_on_line = is_point_on_line(x1,
-                                                            y1,
-                                                            x2,
-                                                            y2,
-                                                            current_x,
-                                                            current_y);
+                    let mut is_point_on_line = false;
+                    for projected_edge in projected_edges.iter() {
+                        let x1 = (projected_edge.0.0 * width as f32).round() as u32;
+                        let y1 = (projected_edge.0.1 * height as f32).round() as u32;
+                        let x2 = (projected_edge.1.0 * width as f32).round() as u32;
+                        let y2 = (projected_edge.1.1 * height as f32).round() as u32;
+                        if check_point_on_line(x1, y1, x2, y2, current_x, current_y) {
+                            is_point_on_line = true;
+                        }
+
+                    }
 
                     if is_point_on_line {
                         red = 0;
@@ -161,30 +118,36 @@ fn main() {
     }).unwrap();
 }
 
-fn is_point_on_line(
-    x1: u32,
-    y1: u32,
-    x2: u32,
-    y2: u32,
-    current_x: u32,
-    current_y: u32) -> bool {
-    let mut first_x = x1;
-    let mut first_y = y1;
-    let mut second_x = x2;
-    let mut second_y = y2;
-    if x2 < x1 {
-        first_x = x2;
-        first_y = y2;
-        second_x = x1;
-        second_y = y1;
+fn check_point_on_line(x1: u32,
+                       y1: u32,
+                       x2: u32,
+                       y2: u32,
+                       current_x: u32,
+                       current_y: u32) -> bool {
+
+    if x1 <= x2 && (current_x < x1 || current_x > x2) {
+        return false;
     }
-    if current_x >= first_x && current_x <= second_x {
-        let calculated_y = calculate_y(first_x, first_y, second_x, second_y, current_x);
-        if current_y == calculated_y {
-            true
-        } else {
-            false
-        }
+
+    if x1 >= x2 && (current_x < x2 || current_x > x1) {
+        return false;
+    }
+
+    if y1 <= y2 && (current_y < y1 || current_y > y2) {
+        return false;
+    }
+
+    if y1 >= y2 && (current_y < y2 || current_y > y1) {
+        return false;
+    }
+
+    if x1 == x2 {
+        return true;
+    }
+
+    let calculated_y = calculate_y(x1, y1, x2, y2, current_x);
+    if current_y == calculated_y {
+        true
     } else {
         false
     }
